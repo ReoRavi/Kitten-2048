@@ -10,17 +10,22 @@ public class Block : MonoBehaviour {
 
 	// Use this for initialization
 	void Start () {
-		
-	}
+    }
 	
 	// Update is called once per frame
 	void Update () {
 		
 	}
 
-    public void Create(int number)
+    public void Create(int number, Sprite sprite)
     {
         this.number = number;
-        GetComponent<SpriteRenderer>().color = new Color(40 * ((number / 2) - 1), 0, 0);
+
+        GetComponent<SpriteRenderer>().sprite = sprite;
+    }
+
+    public void SetImage(Sprite sprite)
+    {
+        GetComponent<SpriteRenderer>().sprite = sprite;
     }
 }
