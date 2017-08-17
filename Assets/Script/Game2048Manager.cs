@@ -61,6 +61,11 @@ public class Game2048Manager : MonoBehaviour
         CreateStartBlock();
     }
 
+    public void Reset()
+    {
+        Application.LoadLevel("Scene");
+    }
+
     // Update is called once per frame
     void Update()
     {
@@ -494,7 +499,7 @@ public class Game2048Manager : MonoBehaviour
         blockCount++;
     }
 
-    private void CreateReward()
+    public void CreateReward()
     {
         int count = 0;
 
@@ -503,11 +508,14 @@ public class Game2048Manager : MonoBehaviour
             for (int y = 0; y < gameSize; y++)
             {
                 //StartCoroutine(RotateBlock(blocks[x, y]));
-                
+                int power;
 
-                int power = GetBlockPower(blocks[x, y].GetComponent<Block>().number);
+                //if (blocks[x, y] == null)
+                //    power = 2;
+                //else
+                power = GetBlockPower(blocks[x, y].GetComponent<Block>().number);
 
-                GameObject obj = Instantiate(blockPrefabs[power], new Vector3(-0.8F + ((count / 4) * 0.6F), 3.5F - ((count % 4) * 0.6F), -4), Quaternion.identity);
+                GameObject obj = Instantiate(blockPrefabs[power], new Vector3((-1.5F + ((count % 8) * 0.35F) - (count / 8) * 0.1F), (1.5F + ((count % 8) * 0.15F)) + ((count / 8) * 0.5F), -4), Quaternion.identity);
 
                 count++;
             }
