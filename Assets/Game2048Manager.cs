@@ -24,17 +24,26 @@ public class Game2048Manager : MonoBehaviour
     private int gameSize;
     // Game State
     private bool play;
+    // block Z Position
+    private int zBlockOrder;
 
     // Touch Position
     private Vector2 touchStartPosition = Vector2.zero;
     // Swipe Distance
     private float minSwipeDistance = 10.0f;
-    
+    // Drag Move State
+    private bool moveState;
+    // Block Create State
+    private bool blockCreateState;
     // Use this for initialization
     void Start()
     {
         gameSize = 4;
         play = true;
+        zBlockOrder = -4;
+
+        moveState = true;
+        blockCreateState = false;
 
         blocks = new GameObject[gameSize, gameSize];
         blockTransform = new Transform[gameSize, gameSize];
@@ -58,32 +67,52 @@ public class Game2048Manager : MonoBehaviour
         if (!play)
             return;
 
-        bool createFlag = false;
-
 #if UNITY_STANDALONE || UNITY_EDITOR || UNITY_WEBGL
-        if (Input.GetKeyDown(KeyCode.UpArrow))
+        if (moveState)
         {
-            MoveUp();
-
-            createFlag = true;
+            if (Input.GetKeyDown(KeyCode.UpArrow))
+            {
+                MoveUp();
+                moveState = false;
+                blockCreateState = true;
+            }
+            else if (Input.GetKeyDown(KeyCode.DownArrow))
+            {
+                MoveDown();
+                moveState = false;
+                blockCreateState = true;
+            }
+            else if (Input.GetKeyDown(KeyCode.LeftArrow))
+            {
+                MoveLeft();
+                moveState = false;
+                blockCreateState = true;
+            }
+            else if (Input.GetKeyDown(KeyCode.RightArrow))
+            {
+                MoveRight();
+                moveState = false;
+                blockCreateState = true;
+            }
         }
-        else if (Input.GetKeyDown(KeyCode.DownArrow))
+        else
         {
-            MoveDown();
-
-            createFlag = true;
-        }
-        else if (Input.GetKeyDown(KeyCode.LeftArrow))
-        {
-            MoveLeft();
-
-            createFlag = true;
-        }
-        else if (Input.GetKeyDown(KeyCode.RightArrow))
-        {
-            MoveRight();
-
-            createFlag = true;
+            if (Input.GetKeyUp(KeyCode.UpArrow))
+            {
+                moveState = true;
+            }
+            else if (Input.GetKeyUp(KeyCode.DownArrow))
+            {
+                moveState = true;
+            }
+            else if (Input.GetKeyUp(KeyCode.LeftArrow))
+            {
+                moveState = true;
+            }
+            else if (Input.GetKeyUp(KeyCode.RightArrow))
+            {
+                moveState = true;
+            }
         }
 #endif
 
@@ -94,7 +123,7 @@ public class Game2048Manager : MonoBehaviour
             {
                 touchStartPosition = Input.GetTouch(0).position;
             }
-            else if (Input.GetTouch(0).phase == TouchPhase.Ended)
+            else if (Input.GetTouch(0).phase == TouchPhase.Moved)
             {
                 Vector2 swipeDelta = (Input.GetTouch(0).position - touchStartPosition);
 
@@ -105,52 +134,67 @@ public class Game2048Manager : MonoBehaviour
 
                 swipeDelta.Normalize();
 
-                if (swipeDelta.y > 0.0f && swipeDelta.x > -0.5f && swipeDelta.x < 0.5f)
+                if (moveState)
                 {
-                    MoveUp();
+                    if (swipeDelta.y > 0.0f && swipeDelta.x > -0.5f && swipeDelta.x < 0.5f)
+                    {
+                        MoveUp();
 
-                    createFlag = true;
-                }
-                else if (swipeDelta.y < 0.0f && swipeDelta.x > -0.5f && swipeDelta.x < 0.5f)
-                {
-                    MoveDown();
+                        moveState = false;
+                        blockCreateState = true;
+                    }
+                    else if (swipeDelta.y < 0.0f && swipeDelta.x > -0.5f && swipeDelta.x < 0.5f)
+                    {
+                        MoveDown();
 
-                    createFlag = true;
-                }
-                else if (swipeDelta.x > 0.0f && swipeDelta.y > -0.5f && swipeDelta.y < 0.5f)
-                {
-                    MoveRight();
+                        moveState = false;
+                        blockCreateState = true;
+                    }
+                    else if (swipeDelta.x > 0.0f && swipeDelta.y > -0.5f && swipeDelta.y < 0.5f)
+                    {
+                        MoveRight();
 
-                    createFlag = true;
-                }
-                else if (swipeDelta.x < 0.0f && swipeDelta.y > -0.5f && swipeDelta.y < 0.5f)
-                {
-                    MoveLeft();
+                        moveState = false;
+                        blockCreateState = true;
+                    }
+                    else if (swipeDelta.x < 0.0f && swipeDelta.y > -0.5f && swipeDelta.y < 0.5f)
+                    {
+                        MoveLeft();
 
-                    createFlag = true;
+                        moveState = false;
+                        blockCreateState = true;
+                    }
                 }
+            }
+            else if (Input.GetTouch(0).phase == TouchPhase.Ended)
+            {
+                moveState = true;
+            }
+        }
+#endif
+
+        if (blockCreateState)
+        {
+            if (!CheckBlockMoving())
+            {
+                CreateBlock();
+                blockCreateState = false;
             }
         }
 
-
-#endif
-
-        if (!CheckBlockMoveLeft())
+        if (!CheckBlockMovePossible())
         {
             gameOver.SetActive(true);
-
-            CreateReward();
-
             play = false;
+            CreateReward();
         }
-
-        if (createFlag)
-            CreateBlock();
     }
 
 #region LEFT
-    private void MoveLeft()
+    private bool MoveLeft()
     {
+        bool createFlag = false;
+
         for (int x = 1; x < gameSize; x++)
         {
             for (int y = 0; y < gameSize; y++)
@@ -172,7 +216,9 @@ public class Game2048Manager : MonoBehaviour
 
                     Vector3 pos = blockTransform[0, y].position;
 
-                    block.transform.position = new Vector3(pos.x, pos.y, -2);
+                    block.GetComponent<Block>().Move(new Vector3(pos.x, pos.y, zBlockOrder));
+
+                    createFlag = true;
                 }
                 // 블럭이 있음
                 else
@@ -181,6 +227,8 @@ public class Game2048Manager : MonoBehaviour
                     if (block.GetComponent<Block>().number == otherBlock.GetComponent<Block>().number)
                     {
                         CombineBlock(otherBlock, block);
+
+                        createFlag = true;
                     }
                     // 숫자가 다를 경우
                     else
@@ -188,12 +236,13 @@ public class Game2048Manager : MonoBehaviour
                         blocks[otherBlockNumber, y] = block;
 
                         Vector3 pos = blockTransform[otherBlockNumber, y].position;
-
-                        block.transform.position = new Vector3(pos.x, pos.y, -2);
+                        block.GetComponent<Block>().Move(new Vector3(pos.x, pos.y, zBlockOrder));
                     }
                 }
             }
         }
+
+        return createFlag;
     }
 
     private GameObject CheckLeftBlock(int currentPos, int yPos, ref int otherBlockNumber)
@@ -236,7 +285,7 @@ public class Game2048Manager : MonoBehaviour
 
                     Vector3 pos = blockTransform[gameSize - 1, y].position;
 
-                    block.transform.position = new Vector3(pos.x, pos.y, -2);
+                    block.GetComponent<Block>().Move(new Vector3(pos.x, pos.y, zBlockOrder));
                 }
                 // 블럭이 있음
                 else
@@ -253,7 +302,7 @@ public class Game2048Manager : MonoBehaviour
 
                         Vector3 pos = blockTransform[otherBlockNumber, y].position;
 
-                        block.transform.position = new Vector3(pos.x, pos.y, -2);
+                        block.GetComponent<Block>().Move(new Vector3(pos.x, pos.y, zBlockOrder));
                     }
                 }
             }
@@ -300,7 +349,7 @@ public class Game2048Manager : MonoBehaviour
 
                     Vector3 pos = blockTransform[x, 0].position;
 
-                    block.transform.position = new Vector3(pos.x, pos.y, -2);
+                    block.GetComponent<Block>().Move(new Vector3(pos.x, pos.y, zBlockOrder));
                 }
                 // 블럭이 있음
                 else
@@ -317,7 +366,7 @@ public class Game2048Manager : MonoBehaviour
 
                         Vector3 pos = blockTransform[x, otherBlockNumber].position;
 
-                        block.transform.position = new Vector3(pos.x, pos.y, -2);
+                        block.GetComponent<Block>().Move(new Vector3(pos.x, pos.y, zBlockOrder));
                     }
                 }
             }
@@ -364,7 +413,7 @@ public class Game2048Manager : MonoBehaviour
 
                     Vector3 pos = blockTransform[x, gameSize - 1].position;
 
-                    block.transform.position = new Vector3(pos.x, pos.y, -2);
+                    block.GetComponent<Block>().Move(new Vector3(pos.x, pos.y, zBlockOrder));
                 }
                 // 블럭이 있음
                 else
@@ -381,7 +430,7 @@ public class Game2048Manager : MonoBehaviour
 
                         Vector3 pos = blockTransform[x, otherBlockNumber].position;
 
-                        block.transform.position = new Vector3(pos.x, pos.y, -2);
+                        block.GetComponent<Block>().Move(new Vector3(pos.x, pos.y, zBlockOrder));
                     }
                 }
             }
@@ -402,7 +451,7 @@ public class Game2048Manager : MonoBehaviour
 
         return null;
     }
-#endregion
+    #endregion
 
     private void CreateStartBlock()
     {
@@ -410,24 +459,9 @@ public class Game2048Manager : MonoBehaviour
 
         while (count < 2)
         {
-            int randomWidth = Random.Range(0, gameSize);
-            int randomHeight = Random.Range(0, gameSize);
-
-            if (blocks[randomWidth, randomHeight] != null)
-                continue;
-
-            GameObject dummy = Instantiate(dummyBlock);
-            Vector3 pos = blockTransform[randomWidth, randomHeight].transform.position;
-
-            int score = 2 * (count + 1);
-
-            dummy.transform.position = new Vector3(pos.x, pos.y, -2);
-            dummy.GetComponent<Block>().Create(score, blockImages[(score / 2) - 1]);
-
-            blocks[randomWidth, randomHeight] = dummy;
+            CreateBlock();
 
             count++;
-            blockCount++;
         }
     }
 
@@ -449,7 +483,7 @@ public class Game2048Manager : MonoBehaviour
 
             int score = 2 * (Random.Range(0, 2) + 1);
 
-            dummy.transform.position = new Vector3(pos.x, pos.y, -2);
+            dummy.transform.position = new Vector3(pos.x, pos.y, -3);
             dummy.GetComponent<Block>().Create(score, blockImages[(score / 2) - 1]);
 
             blocks[randomWidth, randomHeight] = dummy;
@@ -460,37 +494,75 @@ public class Game2048Manager : MonoBehaviour
         blockCount++;
     }
 
-    private void CombineBlock(GameObject combineBlock, GameObject block)
-    {
-        int score = combineBlock.GetComponent<Block>().number * 2;
-        combineBlock.GetComponent<Block>().number = score;
-
-        Destroy(block);
-
-        // 거듭제곱 구하기
-        int imagePower = GetBlockPower(score);
-
-        combineBlock.GetComponent<Block>().SetImage(blockImages[imagePower]);
-
-        blockCount--;
-    }
-
     private void CreateReward()
     {
         int count = 0;
 
-        foreach (GameObject block in blocks)
+        for (int x = 0; x < gameSize; x++)
         {
-            // 거듭제곱 구하기
-            int power = GetBlockPower(block.GetComponent<Block>().number);
+            for (int y = 0; y < gameSize; y++)
+            {
+                //StartCoroutine(RotateBlock(blocks[x, y]));
+                
 
-            Instantiate(blockPrefabs[power], new Vector3(-2.5F + ((count / 3) * 1F), 2F + (count % 3), -4), Quaternion.identity);
+                int power = GetBlockPower(blocks[x, y].GetComponent<Block>().number);
 
-            count++;
+                GameObject obj = Instantiate(blockPrefabs[power], new Vector3(-0.8F + ((count / 4) * 0.6F), 3.5F - ((count % 4) * 0.6F), -4), Quaternion.identity);
+
+                count++;
+            }
         }
     }
 
-    private bool CheckBlockMoveLeft()
+    IEnumerator RotateBlock(GameObject block)
+    {
+        while (true)
+        {
+            float yRotation = transform.eulerAngles.y + 10F;
+
+            if (yRotation >= 350)
+                break;
+
+            transform.eulerAngles = new Vector3(transform.eulerAngles.x, yRotation, transform.eulerAngles.z);
+
+            yield return null;
+        }
+    }
+
+    private void CombineBlock(GameObject combineBlock, GameObject block)
+    {
+        Block combineObject = combineBlock.GetComponent<Block>();
+        int score = combineObject.number * 2;
+        combineObject.number = score;
+
+        block.GetComponent<Block>().Combine(combineBlock.transform.position, () =>
+        {
+            int imagePower = GetBlockPower(score);
+
+            combineBlock.GetComponent<Block>().SetImage(blockImages[imagePower]);
+            combineObject.StartCombineCorutine();
+
+            blockCount--;
+        });
+    }
+
+    private bool CheckBlockMoving()
+    {
+        foreach (GameObject block in blocks)
+        {
+            if (block == null)
+                continue;
+
+            Block b = block.GetComponent<Block>();
+
+            if (b.move)
+                return true;
+        }
+
+        return false;
+    }
+
+    private bool CheckBlockMovePossible()
     {
         if (blockCount < gameSize * gameSize)
         {
@@ -501,15 +573,25 @@ public class Game2048Manager : MonoBehaviour
         {
             for (int y = 0; y < gameSize - 1; y++)
             {
-                Block currentBlock = blocks[x, y].GetComponent<Block>();
-                Block rightBlock = blocks[x + 1, y].GetComponent<Block>();
-                Block downBlock = blocks[x, y + 1].GetComponent<Block>();
+                GameObject currentBlock = blocks[x, y];
+                GameObject rightBlock = blocks[x + 1, y];
+                GameObject downBlock = blocks[x, y + 1];
 
-                if (x != gameSize - 1 && currentBlock.number == rightBlock.number)
+                if (currentBlock == null)
+                    return true;
+
+                if (rightBlock == null)
+                    return true;
+
+                if (x != gameSize - 1 && currentBlock.GetComponent<Block>().number == rightBlock.GetComponent<Block>().number)
                 {
                     return true;
                 }
-                else if (y != gameSize - 1 && currentBlock.number == downBlock.number)
+
+                if (downBlock == null)
+                    return true;
+
+                if (y != gameSize - 1 && currentBlock.GetComponent<Block>().number == downBlock.GetComponent<Block>().number)
                 {
                     return true;
                 }
